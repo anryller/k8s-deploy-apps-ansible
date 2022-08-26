@@ -1,0 +1,2 @@
+---
+- include_tasks: apply_deployments.yml

@@ -1,0 +1,4 @@
+kubectl create configmap {{ item.value.common_configs_folder |replace(".", "-")|replace("_", "-")|trim }}-common-configs \
+    --namespace {{ namespace }} \
+    --from-file=/opt/{{ namespace }}/_common_configs/{{ item.value.common_configs_folder }}/ \
+    --dry-run=client -o yaml | kubectl apply -f -

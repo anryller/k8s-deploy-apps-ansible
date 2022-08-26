@@ -1,0 +1,4 @@
+kubectl create secret generic tethus-app-cert \
+    --namespace {{ namespace }} \
+    --from-file=/opt/{{ namespace }}/_tethus_app_cert/ \
+    --dry-run=client -o yaml | kubectl apply -f -

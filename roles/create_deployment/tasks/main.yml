@@ -1,0 +1,139 @@
+---
+- name: Create foldel for deployments
+  file:
+    path: "/opt/{{ namespace }}/{{ item.value.app_name }}"
+    state: directory
+    mode: "0775"
+  with_dict: "{{ applications }}"
+
+# COMMON CONFIGS
+- name: Create foldel for common configs
+  file:
+    path: "/opt/{{ namespace }}/_common_configs/{{ item.value.common_configs_folder }}"
+    state: directory
+    mode: "0755"
+  with_dict: "{{ applications }}"
+  when: item.value.common_configs_folder is defined
+
+- name: Generate shell scripts for upload common configs to Kubernetes
+  template:
+    src: upload_common_configs.sh.j2
+    dest: /opt/{{ namespace }}//upload_common_configs_{{ item.value.common_configs_folder|replace("-", "_")|trim }}.sh
+    mode: "0755"
+  with_dict: "{{ applications }}"
+  when: item.value.common_configs_folder is defined
+
+# APPLICATION CONFIGS
+- name: Create foldel for application configuration
+  file:
+    path: "/opt/{{ namespace }}/{{ item.0.app_name }}/{{ item.1.name }}/configs"
+    state: directory
+    mode: "0755"
+  when: item.1.configs is defined
+  with_subelements:
+    - "{{ applications }}"
+    - "containers"
+
+- name: Create shell scripts for upload application configs to Kubernetes
+  template:
+    src: upload_app_configs.sh.j2
+    dest: /opt/{{ namespace }}/{{ item.0.app_name }}/upload_app_configs_{{ item.1.name|replace("-", "_")|trim }}.sh
+    mode: "0755"
+  when: item.1.configs is defined
+  with_subelements:
+    - "{{ applications }}"
+    - "containers"
+
+# CERTIFICATES
+- name: Create foldel for certificates
+  file:
+    path: "/opt/{{ namespace }}/{{ item.0.app_name }}/{{ item.1.name }}/certs"
+    state: directory
+    mode: "0755"
+  when: item.1.certificates is defined
+  with_subelements:
+    - "{{ applications }}"
+    - "containers"
+
+- name: Generate shell scripts for upload certificates to Kubernetes
+  template:
+    src: upload_app_certs.sh.j2
+    dest: /opt/{{ namespace }}/{{ item.0.app_name }}/upload_app_certs_{{ item.1.name|replace("-", "_")|trim }}.sh
+    mode: "0755"
+  when: item.1.certificates is defined
+  with_subelements:
+    - "{{ applications }}"
+    - "containers"
+
+# COMMON APPs CERTIFICATE
+- name: Create foldel for common certificate
+  file:
+    path: "/opt/{{ namespace }}/_tethus_app_cert"
+    state: directory
+    mode: "0755"
+
+- name: Generate shell scripts for upload common certificate to Kubernetes
+  template:
+    src: upload_tethus_app_cert.sh.j2
+    dest: /opt/{{ namespace }}/upload_tethus_app_cert.sh
+    mode: "0755"
+
+# TEMPLATE FILES
+- name: Create foldel for application templates
+  file:
+    path: "/opt/{{ namespace }}/{{ item.0.app_name }}/{{ item.1.name }}/templates_files"
+    state: directory
+    mode: "0755"
+  when: item.1.template_files is defined
+  with_subelements:
+    - "{{ applications }}"
+    - "containers"
+
+- name: Generate shell scripts for upload application templates to Kubernetes
+  template:
+    src: upload_app_templates.sh.j2
+    dest: /opt/{{ namespace }}/{{ item.0.app_name }}/upload_app_templates_{{ item.1.name|replace("-", "_")|trim }}.sh
+    mode: "0755"
+  when: item.1.template_files is defined
+  with_subelements:
+    - "{{ applications }}"
+    - "containers"
+
+# TEMPLATE DIRECTORIES
+- name: Create folder for application templates
+  file:
+    path: "/opt/{{ namespace }}//_templates_folder/{{ item.value.templates_folder }}/"
+    state: directory
+    mode: "0755"
+  with_dict: "{{ applications }}"
+  when: item.value.templates_folder is defined
+
+- name: Generate shell scripts for upload templates folder to Kubernetes
+  template:
+    src: upload_telmplates_folder.sh.j2
+    dest: /opt/{{ namespace }}/upload_templates_folder_{{ item.value.templates_folder|replace("-", "_")|trim }}.sh
+    mode: "0755"
+  with_dict: "{{ applications }}"
+  when: item.value.templates_folder is defined
+
+# GENERATE KUBERNETES YAML
+- name: Generate deployments
+  template:
+    src: deployment.yml.j2
+    dest: "/opt/{{ namespace }}/{{ item.value.app_name }}/{{ item.value.app_name }}-deployment.yml"
+  with_dict: "{{ applications }}"
+
+- name: Generate service
+  template:
+    src: service.yml.j2
+    dest: "/opt/{{ namespace }}/{{ item.value.app_name }}/{{ item.value.app_name }}-service.yml"
+  with_dict: "{{ applications }}"
+
+- name: Generate secret for private docker registry
+  shell: |
+    kubectl create secret docker-registry {{ docker_registry|replace(".", "-") }}-secret \
+      --docker-server={{ docker_registry }} \
+      --docker-username={{ docker_registry_username }} \
+      --docker-password={{ docker_registry_password }} \
+      --namespace {{ namespace }} \
+      --dry-run=client -o yaml > /opt/{{ namespace }}/{{ docker_registry }}-secret.yml

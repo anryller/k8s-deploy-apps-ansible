@@ -1,0 +1,31 @@
+---
+
+- name: Check upd variable
+  debug:
+   msg: "upd is required"
+  failed_when: upd is not defined
+
+- name: Get updating service name
+  set_fact:
+   svc_name: "{{ upd | regex_replace('^(.*?)-version=.*', '\\1') }}"
+
+- name: Select required deployment
+  set_fact:
+   applications: '{{ applications|dict2items|selectattr("key", "equalto", svc_name )|list|items2dict }}'
+
+- name: Delete a Deployment object by reading the definition from a file
+  k8s:
+    state: absent
+    src: "/opt/{{ namespace }}/{{ item.value.app_name }}/{{ item.value.app_name }}-deployment.yml"
+    apply: yes
+    wait: yes
+  with_dict: "{{ applications }}"
+
+- name: Create a Deployment object by reading the definition from a file
+  k8s:
+    state: present
+    src: "/opt/{{ namespace }}/{{ item.value.app_name }}/{{ item.value.app_name }}-deployment.yml"
+    apply: yes
+    wait: yes
+  with_dict: "{{ applications }}"
+  

@@ -1,0 +1,18 @@
+kind: Service
+apiVersion: v1
+metadata:
+  name: airflow-nodeport
+  namespace: tethus
+  labels:
+    app.kubernetes.io/name: airflow
+spec:
+  ports:
+    - name: airflow-nodeport
+      protocol: TCP
+      port: 8080
+      targetPort: 8080
+      nodePort: 30080
+  selector:
+    app.kubernetes.io/name: airflow
+  type: NodePort
+  sessionAffinity: None

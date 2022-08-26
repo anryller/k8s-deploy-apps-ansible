@@ -1,0 +1,27 @@
+---
+- name: Create Kubernetes namespace {{ namespace }}
+  k8s:
+    name: "{{ namespace }}"
+    api_version: v1
+    kind: Namespace
+    state: present
+
+- name: Create a Deployment object by reading the definition from a file
+  k8s:
+    state: present
+    src: "/opt/{{ namespace }}/{{ docker_registry }}-secret.yml"
+    apply: yes
+
+- name: Create a Service object by reading the definition from a file
+  k8s:
+    state: present
+    src: "/opt/{{ namespace }}/{{ item.value.app_name }}/{{ item.value.app_name }}-service.yml"
+    apply: yes
+  with_dict: "{{ applications }}"
+
+- name: Create a Deployment object by reading the definition from a file
+  k8s:
+    state: present
+    src: "/opt/{{ namespace }}/{{ item.value.app_name }}/{{ item.value.app_name }}-deployment.yml"
+    apply: yes
+  with_dict: "{{ applications }}"

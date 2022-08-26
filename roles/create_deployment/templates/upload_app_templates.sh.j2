@@ -1,0 +1,4 @@
+kubectl create configmap {{ item.1.name }}-template-files \
+    --namespace {{ namespace }} \
+    --from-file=/opt/{{ namespace }}/{{ item.0.app_name }}/{{ item.1.name }}/templates_files/
+

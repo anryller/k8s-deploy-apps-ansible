@@ -1,0 +1,6 @@
+---
+- name: Create deployments
+  hosts: all
+
+  roles:
+    - create_deployment_cd

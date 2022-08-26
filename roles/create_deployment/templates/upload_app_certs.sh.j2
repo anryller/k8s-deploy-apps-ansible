@@ -1,0 +1,3 @@
+kubectl create secret generic {{ item.1.name }}-certs \
+    --namespace {{ namespace }} \
+    --from-file=/opt/{{ namespace }}/{{ item.0.app_name }}/{{ item.1.name }}/certs --dry-run=client -o yaml | kubectl apply -f -

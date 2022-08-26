@@ -1,0 +1,10 @@
+test -f /opt/{{ namespace }}/_templates_folder/{{ item.value.templates_folder }}/templates.tgz && rm -f /opt/{{ namespace }}/_templates_folder/{{ item.value.templates_folder }}/templates.tgz
+
+env GZIP=-9 /usr/bin/tar cvfz /opt/{{ namespace }}/_templates_folder/{{ item.value.templates_folder }}/templates.tgz -C /opt/{{ namespace }}/_templates_folder/{{ item.value.templates_folder }}/ .
+
+/usr/bin/kubectl delete configmap {{ item.value.templates_folder |replace(".", "-")|replace("_", "-")|trim }}-templates-folder \
+    --namespace {{ namespace }}
+
+/usr/bin/kubectl create configmap {{ item.value.templates_folder |replace(".", "-")|replace("_", "-")|trim }}-templates-folder \
+    --namespace {{ namespace }} \
+    --from-file=/opt/{{ namespace }}/_templates_folder/{{ item.value.templates_folder }}/templates.tgz

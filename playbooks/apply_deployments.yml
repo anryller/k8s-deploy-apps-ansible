@@ -1,0 +1,6 @@
+---
+- name: Apply deployment to Kubernetes
+  hosts: all
+
+  roles:
+    - apply_deployment

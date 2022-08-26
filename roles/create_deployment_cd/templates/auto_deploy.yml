@@ -1,0 +1,8 @@
+  UPD_SVC_NAME:
+    app_name: UPD_SVC_NAME
+    app_version: "{{ UPD_SVC_NAME_version }}"
+    containers:
+      - name: UPD_SVC_NAME
+        image: "{{ docker_registry }}/UPD_SVC_NAME:"{{ UPD_SVC_NAME_version }}"
+        ports:
+          - 8080

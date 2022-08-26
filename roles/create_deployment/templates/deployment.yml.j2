@@ -1,0 +1,193 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/name: "{{ applications[item.key].app_name }}"
+    app.kubernetes.io/version: "{{ applications[item.key].app_version }}"
+  name: "{{ applications[item.key].app_name }}"
+  namespace: "{{ namespace }}"
+spec:
+  replicas: 1
+  revisionHistoryLimit: 5
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: "{{ applications[item.key].app_name }}"
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: "{{ applications[item.key].app_name }}"
+        app.kubernetes.io/version: "{{ applications[item.key].app_version }}"
+    spec:
+{% if applications[item.key].templates_folder is defined %}
+      initContainers:
+      - name: "init-{{ applications[item.key].app_name }}-upload-templates"
+        image: hellyna/tar
+        args: ["xvfz", "/archive/templates.tgz", "-C", "/templates/"]       
+        volumeMounts:
+        - name: "{{ applications[item.key].templates_folder }}-templates-data"
+          mountPath: "/templates"
+        - name: "{{ applications[item.key].templates_folder }}-templates-archive"
+          mountPath: "/archive"
+{% endif %}
+      containers:
+{% for container in applications[item.key].containers %}
+      - name: "{{ container.name }}"
+        image: "{{ container.image }}"
+        imagePullPolicy: Always
+{% if container.working_dir is defined %}
+        workingDir: "{{ container.working_dir }}"
+{% endif %}
+{% if container.container_command is defined %}
+        command: {{ container.container_command|to_yaml|trim }}
+{% endif %}
+{% if container.container_command_args is defined %}
+        args: {{ container.container_command_args|to_yaml|trim }}
+{% endif %}
+{% if container.livenessProbe is defined %}
+        livenessProbe:
+         httpGet:
+           path: {{ container.livenessProbe.path }}
+           port: {{ container.livenessProbe.port }}
+         initialDelaySeconds: {{ container.livenessProbe.initialDelaySeconds }}
+         timeoutSeconds: {{ container.livenessProbe.timeoutSeconds }}
+         periodSeconds: {{ container.livenessProbe.periodSeconds }}
+         failureThreshold: {{ container.livenessProbe.failureThreshold }}
+{% endif %}
+{% if container.ports is defined %}
+        ports:
+{% for port in container.ports  %}
+        - containerPort: {{ port }}
+{% endfor %}
+{% endif %}
+{% if container.application_envs is defined %}
+        env:
+{% set env_vars = container.application_envs %}
+{% for variable in env_vars %}
+        - name: "{{ variable.name }}"
+          value: "{{ variable.value }}"
+{% endfor %}
+{% endif %}
+        volumeMounts:
+{% if container.common_configs_path is defined %}
+        - name: "{{ applications[item.key].common_configs_folder }}-common-configs"
+          mountPath: "{{ container.common_configs_path }}"
+{% endif %}
+{% if container.templates_folder_path is defined %}
+        - name: "{{ applications[item.key].templates_folder }}-templates-data"
+          mountPath: "{{ container.templates_folder_path }}"
+{% endif %}
+{% if container.tethus_app_cert_path is defined %}
+        - name: "{{ container.name }}-tethus-app-cert"
+          mountPath: "{{ container.tethus_app_cert_path }}"
+          subPath: "{{ tethus_app_cert }}"
+{% endif %}
+{% if container.configs is defined %}
+{% set config_files = container.configs %}
+{% for config in config_files %}
+        - name: "{{ container.name }}-configs"
+          mountPath: "{{ config.container_path }}"
+          subPath: "{{ config.file }}"
+{% endfor %}
+{% endif %}
+{% if container.certificates is defined %}
+{% set cert_files = container.certificates %}
+{% for cert in cert_files %}
+        - name: "{{ container.name }}-certs"
+          mountPath: "{{ cert.container_path }}"
+          subPath: "{{ cert.file }}"
+{% endfor %}
+{% endif %}
+{% if container.template_files is defined %}
+{% for template in container.template_files %}
+        - name: "{{ container.name }}-template-files"
+          mountPath: "{{ template.container_path }}"
+          subPath: "{{ template.file }}"
+{% endfor %}
+{% endif %}
+{% if container.readiness_probe_port is defined %}
+        readinessProbe:
+          tcpSocket:
+            port: {{ container.readiness_probe_port }}
+          initialDelaySeconds: 20
+          periodSeconds: 5
+          failureThreshold: 20
+{% endif %}
+        lifecycle:
+          preStop:
+            exec:
+              command: [sh, -c, "sleep 5"]
+        resources:
+{% if container.cpu_limit is defined %}
+          limits:
+            cpu: "{{ container.cpu_limit }}"
+            memory: "{{ container.memory_limit }}"
+          requests:
+            cpu: "{{ container.cpu_limit }}"
+            memory: "{{ container.memory_limit }}"
+{% endif %}
+{% endfor %}
+      restartPolicy: Always
+      imagePullSecrets:
+      - name: "{{ docker_registry|replace(".", "-") }}-secret"
+      terminationGracePeriodSeconds: 10
+      volumes:
+{% for container in applications[item.key].containers %}
+{% if container.configs is defined %}
+      - name: "{{ container.name }}-configs"
+        configMap:
+          name: "{{ container.name }}-configs"
+          items:
+{% set config_files = container.configs %}
+{% for config in config_files %}
+          - key: "{{ config.file }}"
+            path: "{{ config.file }}"
+{% endfor %}
+{% endif %}
+{% if container.certificates is defined %}
+      - name: "{{ container.name }}-certs"
+        secret:
+          secretName: "{{ container.name }}-certs"
+          items:
+{% set cert_files = container.certificates %}
+{% for cert in cert_files %}
+          - key: "{{ cert.file }}"
+            path: "{{ cert.file }}"
+{% endfor %}
+{% endif %}
+{% if container.template_files is defined %}
+      - name: "{{ container.name }}-template-files"
+        configMap:
+          name: "{{ container.name }}-template-files"
+          items:
+{% set tmplt_files = container.template_files %}
+{% for template in tmplt_files %}
+          - key: "{{ template.file }}"
+            path: "{{ template.file }}"
+{% endfor %}
+{% endif %}
+{% if container.tethus_app_cert_path is defined %}
+      - name: "{{ container.name }}-tethus-app-cert"
+        secret:
+          secretName: "tethus-app-cert"
+          items:
+          - key: "{{ tethus_app_cert }}"
+            path: "{{ tethus_app_cert }}"
+{% endif %}
+{% endfor %}
+{% if applications[item.key].common_configs_folder is defined %}
+      - name: "{{ applications[item.key].common_configs_folder }}-common-configs"
+        configMap:
+          name: "{{ applications[item.key].common_configs_folder }}-common-configs"
+{% endif %}
+{% if applications[item.key].templates_folder is defined %}
+      - name: "{{ applications[item.key].templates_folder }}-templates-archive"
+        configMap:
+          name: "{{ applications[item.key].templates_folder }}-templates-folder"
+      - name: "{{ applications[item.key].templates_folder }}-templates-data"
+        emptyDir: {}
+{% endif %}

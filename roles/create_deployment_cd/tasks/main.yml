@@ -1,0 +1,46 @@
+---
+
+- name: Check upd variable
+  debug:
+   msg: "upd is required"
+  failed_when: upd is not defined
+
+# - name: Get updating service name
+#   set_fact:
+#    svc_name: "{{ upd | regex_replace('^(.*?)-version=.*', '\\1') }}"
+
+- name: Select required deployment
+  set_fact:
+   applications: '{{ applications|dict2items|selectattr("key", "equalto", upd )|list|items2dict }}'
+
+- name: Generate deployments
+  template:
+    src: deployment.yml.j2
+    dest: "/opt/{{ namespace }}/{{ item.value.app_name }}/{{ item.value.app_name }}-deployment.yml"
+  with_dict: "{{ applications }}"
+  #with_dict: "{{ 'new_dict' if new_dict is defined else 'applications' }}"
+
+
+# - name: Replace symbol in variable upd
+#   set_fact:
+#    upd2: '{{upd | replace("-","_")}}'
+
+# - name: Get updating service name
+#   set_fact:
+#    svc_name: "{{ upd2 | regex_replace('^(.*?)_version=.*', '\\1') }}"
+
+# - name: Get updating service version
+#   set_fact:
+#    svc_ver: "{{ upd2 | regex_replace('^(.*?)_version=(.*)', '\\2') }}"
+
+# - name: Replace service version 
+#   lineinfile:
+#     path: "{{inventory_file}}"
+#     regexp: "{{svc_name}}_version=(.*)$"
+#     line: "{{svc_name}}_version='{{svc_ver}}'"
+
+
+#ansible-playbook -i ./inventory/test_integration.ini ./playbooks/create_deployments.yml -e upd=backoffice-data-enricher-version=5
+
+#- name: "Check var"
+#  debug: var="svc_name"

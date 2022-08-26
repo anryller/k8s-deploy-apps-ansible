@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/name: "{{ applications[item.key].app_name }}"
+  name: "{{ applications[item.key].app_name }}"
+  namespace: "{{ namespace }}"
+spec:
+  ports:
+{% for container in applications[item.key].containers %}
+{% if container.ports is defined %}
+{% for port in container.ports  %}
+  - name: "{{ container.name }}-{{ container.ports.index(port) }}"
+    port: {{ port }}
+    targetPort: {{ port }}
+    protocol: TCP
+{% endfor %}
+{% endif %}
+{% endfor %}
+  selector:
+    app.kubernetes.io/name: "{{ applications[item.key].app_name }}"

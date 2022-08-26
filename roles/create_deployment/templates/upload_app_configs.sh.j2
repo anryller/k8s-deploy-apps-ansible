@@ -1,0 +1,4 @@
+kubectl create configmap {{ item.1.name }}-configs \
+    --namespace {{ namespace }} \
+    --from-file=/opt/{{ namespace }}/{{ item.0.app_name }}/{{ item.1.name }}/configs/ \
+    --dry-run=client -o yaml | kubectl apply -f -
